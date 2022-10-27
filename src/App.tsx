@@ -21,7 +21,7 @@ import { ReactZoomPanPinchRef, TransformComponent, TransformWrapper } from 'reac
 import { useRecoilState } from 'recoil';
 import { Button } from './Button';
 import { db, GameMap, MapTile, TilePicture } from './db';
-import { activemapState } from './state';
+import { activemapState, mulanamodeState } from './state';
 import { alphabet, drawLinks, fuseOptions, getImageSrc } from './utils';
 
 interface TempLink {
@@ -49,6 +49,10 @@ const App = () => {
   const [templink, settemplink] = useState<TempLink>();
   const [searchresults, setsearchresults] = useState<Fuse.FuseResult<MapTile>[]>([]);
   const [highlight, sethighlight] = useState<number | null>(null);
+  const [mulanamode, setmulanamode] = useRecoilState(mulanamodeState);
+
+  const tWidth = mulanamode === 1 ? 320 : 431;
+  const tHeight = 240;
 
   async function refreshMap(mapId?: number | null) {
     setmaploading(true);
@@ -252,7 +256,10 @@ const App = () => {
 
   const addTileNote = useCallback(
     async (acceptedFiles: File[]) => {
-      const imgSrc = await getImageSrc(acceptedFiles);
+      const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
+      if (!imgSrc) {
+        return;
+      }
       if (import.meta.env.VITE_API_KEY) {
         const onlyBase64 = imgSrc.slice(23);
         toast.info('Detecting text');
@@ -281,12 +288,23 @@ const App = () => {
             },
           }
         );
-        await db.tiles.update(activeTile!.id!, {
-          notes: `${
+        let noteText = '';
+        if (mulanamode === 1) {
+          noteText = `${
             activeTile?.notes ? activeTile.notes + '\n\n' : ''
           }${result.data.responses[0].fullTextAnnotation.text
             .replaceAll(/^[\d]*\s*/gm, '')
-            .replace(/\nOK(.|\s)*$/, '')}`,
+            .replace(/\nOK(.|\s)*$/, '')}`;
+        } else {
+          noteText = `${
+            activeTile?.notes ? activeTile.notes + '\n\n' : ''
+          }${result.data.responses[0].fullTextAnnotation.text
+            .replace('Scan Mode', '')
+            .replaceAll(/^[\d]*\s*/gm, '')
+            .replace(/\nCANCEL(.|\s)*$/, '')}`;
+        }
+        await db.tiles.update(activeTile!.id!, {
+          notes: noteText,
         });
         const newtile = await db.tiles.get(activeTile!.id!);
         if (newtile) {
@@ -412,6 +430,7 @@ const App = () => {
 
   return (
     <div className="h-screen w-screen grid place-items-center absolute overflow-hidden">
+      {<canvas className="opacity-0 absolute translate-x-full z-0" width={832} height={463} id="cropcanvas" />}
       <div className="shadow bg-white fixed top-0 left-0 flex w-full flex-row justify-between items-start p-2 z-[60]">
         <div className="flex flex-row items-center">
           <h1 className="mx-2 text-lg font-bold">mtrax.exe</h1>
@@ -419,7 +438,7 @@ const App = () => {
             className="rounded-full p-2 bg-blue-500 mr-2 w-9 h-9 flex justify-center items-center text-white"
             onClick={async () => {
               alert(
-                'Create a map with the plus button. Drag screenshot files from the game to the empty tiles to start mapping\n\nLeft click to pan, wheel to zoom, right click to open tile details\n\nTo add a guiding line between two tiles (e.g. loops or portals), click the link adding button on the top and click twice on the map. The line will be drawn between those two points\n\nTo remove links, open a tile and click the Delete Links button'
+                'Select game version with the numbered button. Create a map with the plus button. Drag screenshot files from the game to the empty tiles to start mapping\n\nLeft click to pan, wheel to zoom, right click to open tile details\n\nTo add a guiding line between two tiles (e.g. loops or portals), click the link adding button on the top and click twice on the map. The line will be drawn between those two points\n\nTo remove links, open a tile and click the Delete Links button'
               );
             }}
           >
@@ -429,6 +448,23 @@ const App = () => {
             <button className="rounded-full p-2 bg-red-600 text-white mr-2" onClick={() => deleteMap()}>
               <TrashIcon className="w-5 h-5" />
             </button>
+          )}
+          {maps.length === 0 && (
+            <>
+              <span className="mr-2">Version:</span>
+              <button
+                className="rounded-full p-2 bg-orange-600 w-9 h-9 text-white mr-2 flex justify-center items-center"
+                onClick={() => {
+                  if (mulanamode === 1) {
+                    setmulanamode(2);
+                  } else {
+                    setmulanamode(1);
+                  }
+                }}
+              >
+                {mulanamode}
+              </button>
+            </>
           )}
           {activemap !== -1 && (
             <button
@@ -509,7 +545,7 @@ const App = () => {
                     <div
                       onClick={() => openTile(x)}
                       onContextMenu={() => openTile(x)}
-                      className="w-[320px] h-[240px] cursor-pointer mr-2 mb-2"
+                      className={`w-[${tWidth}px] h-[${tHeight}px] cursor-pointer mr-2 mb-2`}
                       key={`umap_${x.id}`}
                     >
                       <img src={x.img} alt="" />
@@ -581,22 +617,29 @@ const App = () => {
       <TransformWrapper ref={panRef} limitToBounds={false} doubleClick={{ disabled: true }} minScale={0.3}>
         <TransformComponent>
           <div
-            style={{ width: `${maxX * 320}px`, height: `${maxY * 240}px` }}
+            style={{ width: `${maxX * tWidth}px`, height: `${maxY * tHeight}px` }}
             className="min-w-[100vw] min-h-[100vh] flex flex-row justify-start items-start relative"
           >
-            <canvas className="z-[87] pointer-events-none" width={maxX * 320} height={maxY * 240} id="linecanvas" />
+            <canvas
+              className="z-[87] pointer-events-none"
+              width={maxX * tWidth}
+              height={maxY * tHeight}
+              id="linecanvas"
+            />
             {map?.map((xrow, yidx) => {
               return xrow.map((tile, xidx) => {
                 return (
                   <div
                     id={`tile_${tile?.id!}`}
                     key={`${xidx}-${yidx}`}
-                    className={`absolute w-[320px] h-[240px] ${
-                      highlight === tile?.id ? 'outline outline-8 outline-pink-500 z-10' : ''
-                    } ${linkmode ? 'cursor-pointer' : ''}`}
+                    className={`absolute ${highlight === tile?.id ? 'outline outline-8 outline-pink-500 z-10' : ''} ${
+                      linkmode ? 'cursor-pointer' : ''
+                    }`}
                     style={{
-                      top: `${yidx * 240}px`,
-                      left: `${xidx * 320}px`,
+                      height: `${tHeight}px`,
+                      width: `${tWidth}px`,
+                      top: `${yidx * tHeight}px`,
+                      left: `${xidx * tWidth}px`,
                     }}
                     onClick={(e) => onTileLink(tile, e)}
                   >
@@ -614,7 +657,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           if (tile?.id) {
                             await db.tiles.update(tile.id, { img: imgSrc });
                             setmap(
@@ -672,7 +715,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           const maptiles: MapTile[] = map.flat().filter((x) => x !== null) as any;
                           await db.tiles.bulkPut(maptiles.map((tile) => ({ ...tile, y: tile.y + 1 })));
                           const result = await db.tiles.add({
@@ -707,7 +750,10 @@ const App = () => {
                       >
                         {({ getRootProps, getInputProps }) => (
                           <div
-                            className="group absolute w-[320px] h-16 left-0 -top-16 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center"
+                            className={`group absolute h-16 left-0 -top-16 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center`}
+                            style={{
+                              width: `${tWidth}px`,
+                            }}
                             {...getRootProps()}
                           >
                             <input {...getInputProps()} />
@@ -720,7 +766,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           const result = await db.tiles.add({
                             map: activemap,
                             x: xidx,
@@ -747,7 +793,10 @@ const App = () => {
                       >
                         {({ getRootProps, getInputProps }) => (
                           <div
-                            className="group absolute w-[320px] h-16 left-0 -bottom-16 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center"
+                            className={`group absolute h-16 left-0 -bottom-16 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center`}
+                            style={{
+                              width: `${tWidth}px`,
+                            }}
                             {...getRootProps()}
                           >
                             <input {...getInputProps()} />
@@ -760,7 +809,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           const maptiles: MapTile[] = map.flat().filter((x) => x !== null) as any;
                           await db.tiles.bulkPut(maptiles.map((tile) => ({ ...tile, x: tile.x + 1 })));
                           const result = await db.tiles.add({
@@ -794,7 +843,10 @@ const App = () => {
                       >
                         {({ getRootProps, getInputProps }) => (
                           <div
-                            className="group absolute h-[240px] w-16 -left-16 top-0 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center"
+                            className={`group absolute w-16 -left-16 top-0 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center`}
+                            style={{
+                              height: `${tHeight}px`,
+                            }}
                             {...getRootProps()}
                           >
                             <input {...getInputProps()} />
@@ -807,7 +859,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           const result = await db.tiles.add({
                             map: activemap,
                             x: xidx + 1,
@@ -832,7 +884,10 @@ const App = () => {
                       >
                         {({ getRootProps, getInputProps }) => (
                           <div
-                            className="group absolute h-[240px] w-16 -right-16 top-0 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center"
+                            className={`group absolute w-16 -right-16 top-0 rounded hover:border grid place-items-center hover:bg-slate-100 transition after:hover:content-['Drag_image_here'] text-center`}
+                            style={{
+                              height: `${tHeight}px`,
+                            }}
                             {...getRootProps()}
                           >
                             <input {...getInputProps()} />
@@ -924,7 +979,7 @@ const App = () => {
                       <Dropzone
                         noClick={true}
                         onDrop={async (acceptedFiles) => {
-                          const imgSrc = await getImageSrc(acceptedFiles);
+                          const imgSrc = await getImageSrc(acceptedFiles, mulanamode);
                           await db.tiles.update(activeTile!.id!, { img: imgSrc });
                           setactiveTile({ ...activeTile, img: imgSrc } as any);
                           setmap(
