@@ -18,3 +18,9 @@ export const activemapState = atom({
   default: -1,
   effects: [localStorageEffect('activemap')],
 });
+
+export const mulanamodeState = atom({
+  key: 'mulanamode',
+  default: 1,
+  effects: [localStorageEffect('mulanamode')],
+});

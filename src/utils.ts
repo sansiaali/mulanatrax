@@ -19,10 +19,32 @@ export async function readFileAsDataURL(file: File): Promise<string> {
   return result_base64;
 }
 
-export async function getImageSrc(files: File[]) {
+export async function getImageSrc(files: File[], mode: number = 1) {
   const file = files[0];
   const result = await readFileAsDataURL(file);
-  return result;
+  if (mode === 1) {
+    return result;
+  } else {
+    const c: HTMLCanvasElement = document.getElementById('cropcanvas') as any;
+    const ctx = c.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.clearRect(0, 0, c.width, c.height);
+    const img = new Image();
+    img.src = result;
+    await img.decode();
+    const sourceX = 128;
+    const sourceY = 60;
+    const sourceWidth = 1664;
+    const sourceHeight = 926;
+    const destWidth = sourceWidth / 2;
+    const destHeight = sourceHeight / 2;
+    const destX = 0;
+    const destY = 0;
+    ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
+    return c.toDataURL('image/jpeg', 0.7);
+  }
 }
 
 export function drawLinks(links: TileLink[]) {
