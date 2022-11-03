@@ -67,6 +67,8 @@ const App = () => {
           map: tile.map,
           name: tile.name,
           notes: tile.notes,
+          x: tile.x,
+          y: tile.y,
         } as any);
         if (tile.map === (mapId ? mapId : activemap !== -1 ? activemap : maps[0].id!)) {
           dbmapTiles.push(tile);
