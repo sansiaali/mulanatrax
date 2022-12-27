@@ -1,6 +1,6 @@
 # mtrax.exe
 
-Web-based mapper/notepad for La-Mulana players
+Web-based mapper/notepad for La-Mulana 1/2 players
 
 ### Features
 
@@ -23,6 +23,12 @@ Web-based mapper/notepad for La-Mulana players
 
 ### Notes
 
+**La-Mulana 1**
+
 For best results, set your game to windowed mode and a resolution that has an aspect ratio of 4:3 (e.g. 1280x960).
+
+**La-Mulana 2**
+
+For best results, set your game to windowed mode and use a resolution of 1920x1080.
 
 Open up the folder where Steam stores your game screenshots so that you can press F12 ingame and then drag the file to the browser.

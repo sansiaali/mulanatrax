@@ -432,7 +432,14 @@ const App = () => {
 
   return (
     <div className="h-screen w-screen grid place-items-center absolute overflow-hidden">
-      {<canvas className="opacity-0 absolute translate-x-full z-0" width={832} height={463} id="cropcanvas" />}
+      {
+        <canvas
+          className="opacity-0 absolute translate-x-full z-0"
+          width={mulanamode === 2 ? 832 : 640}
+          height={mulanamode === 2 ? 463 : 480}
+          id="cropcanvas"
+        />
+      }
       <div className="shadow bg-white fixed top-0 left-0 flex w-full flex-row justify-between items-start p-2 z-[60]">
         <div className="flex flex-row items-center">
           <h1 className="mx-2 text-lg font-bold">mtrax.exe</h1>
@@ -1084,7 +1091,7 @@ const App = () => {
           </div>
         </Dialog>
       </Transition>
-      <ToastContainer autoClose={2000} />
+      <ToastContainer autoClose={2000} position="bottom-left" />
     </div>
   );
 };

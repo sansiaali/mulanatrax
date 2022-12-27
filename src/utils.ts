@@ -22,29 +22,25 @@ export async function readFileAsDataURL(file: File): Promise<string> {
 export async function getImageSrc(files: File[], mode: number = 1) {
   const file = files[0];
   const result = await readFileAsDataURL(file);
-  if (mode === 1) {
-    return result;
-  } else {
-    const c: HTMLCanvasElement = document.getElementById('cropcanvas') as any;
-    const ctx = c.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.clearRect(0, 0, c.width, c.height);
-    const img = new Image();
-    img.src = result;
-    await img.decode();
-    const sourceX = 128;
-    const sourceY = 60;
-    const sourceWidth = 1664;
-    const sourceHeight = 926;
-    const destWidth = sourceWidth / 2;
-    const destHeight = sourceHeight / 2;
-    const destX = 0;
-    const destY = 0;
-    ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
-    return c.toDataURL('image/jpeg', 0.7);
+  const c: HTMLCanvasElement = document.getElementById('cropcanvas') as any;
+  const ctx = c.getContext('2d');
+  if (!ctx) {
+    return;
   }
+  ctx.clearRect(0, 0, c.width, c.height);
+  const img = new Image();
+  img.src = result;
+  await img.decode();
+  const sourceX = mode === 2 ? 128 : 0;
+  const sourceY = mode === 2 ? 60 : 0;
+  const sourceWidth = mode === 2 ? 1664 : 1280;
+  const sourceHeight = mode === 2 ? 926 : 960;
+  const destWidth = sourceWidth / 2;
+  const destHeight = sourceHeight / 2;
+  const destX = 0;
+  const destY = 0;
+  ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
+  return c.toDataURL('image/jpeg', 0.8);
 }
 
 export function drawLinks(links: TileLink[]) {
